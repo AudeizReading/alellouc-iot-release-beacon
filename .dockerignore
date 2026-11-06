@@ -1,0 +1,5 @@
+release-beacon.yaml
+__pycache__/
+**/__pycache__/
+*.pyc
+**/*.pyc

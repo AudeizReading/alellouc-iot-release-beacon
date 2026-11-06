@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="color-scheme" content="dark light" />
+		<title>$app · Inception of Things</title>
+		<link rel="icon" href="$favicon" />
+		<link rel="stylesheet" href="/css/stylesheet.css" />
+	</head>
+	<body class="$app">
+		<div class="shell">
+			<header class="topbar">
+				<p class="brand">
+					<span class="brand-mark" aria-hidden="true">&gt;_</span>
+					<span class="brand-name">INCEPTION OF THINGS</span>
+					<span class="brand-detail">$part / K3D LAB</span>
+				</p>
+
+				<div class="topbar-tools">
+					<p class="response-state">
+						<span class="dot" aria-hidden="true"></span>REQUEST SERVED
+					</p>
+					<label class="theme-toggle" for="theme-dark">
+						<input id="theme-dark" type="checkbox" role="switch" checked />
+						<span class="theme-toggle-track" aria-hidden="true"></span>
+						Dark mode
+					</label>
+				</div>
+			</header>
+
+			<main>
+				<section aria-labelledby="page-title">
+					<p class="eyebrow"><span aria-hidden="true">01 /</span> WORKLOAD IDENTITY</p>
+					<h1 id="page-title">Hello from <strong>$app.</strong></h1>
+					<p class="intro">One response. One pod.<br />This is the instance that answered.</p>
+					<p class="route">
+						<span>Method: $method</span>
+						<code>Path: $path</code>
+						<small>HTTP status: $status_code $status_reason</small>
+					</p>
+					<p class="intro" $error_hidden>
+						<strong>Error:</strong> $error_message $error_explanation
+					</p>
+				</section>
+
+				<section class="terminal" aria-labelledby="response-title">
+					<header class="terminal-bar">
+						<span class="window-dots" aria-hidden="true">
+							<span class="dot"></span>
+							<span class="dot"></span>
+							<span class="dot"></span>
+						</span>
+						<span>response / identity</span>
+					</header>
+					<div class="terminal-body">
+						<p class="command"><span aria-hidden="true">&gt;</span> HTTP server</p>
+						<h2 id="response-title">Application and pod</h2>
+						<dl>
+							<dt>APPLICATION</dt>
+							<dd><code>$app</code></dd>
+
+							<dt>VERSION</dt>
+							<dd><code>$app_version</code></dd>
+
+							<dt>POD HOSTNAME</dt>
+							<dd><code class="pod">$pod</code></dd>
+						</dl>
+						<p class="terminal-note">Same code. Separate workloads.</p>
+					</div>
+				</section>
+			</main>
+
+			<footer class="footer">
+				<span>Inception of Things / $part</span>
+				<span>Shared source code across applications</span>
+				<span>Served by $app, made by team <span class="team">$team</span></span>
+				<span><a href="mailto:$team_mail">Contact us!</a></span>
+			</footer>
+		</div>
+	</body>
+</html>
+

@@ -1,0 +1,6 @@
+./argocd
+release-beacon*.yaml
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
