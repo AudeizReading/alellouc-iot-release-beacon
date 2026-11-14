@@ -13,60 +13,241 @@
 			<header class="topbar">
 				<p class="brand">
 					<span class="brand-mark" aria-hidden="true">&gt;_</span>
-					<span class="brand-name">INCEPTION OF THINGS</span>
-					<span class="brand-detail">$part / K3D LAB</span>
+					<span>
+						<strong>INCEPTION OF THINGS</strong>
+						<small>$part / K3D LAB / GITOPS</small>
+					</span>
 				</p>
 
 				<div class="topbar-tools">
 					<p class="response-state">
-						<span class="dot" aria-hidden="true"></span>REQUEST SERVED
+						<span class="status-dot" aria-hidden="true"></span
+						>REQUEST SERVED
 					</p>
 					<label class="theme-toggle" for="theme-dark">
-						<input id="theme-dark" type="checkbox" role="switch" checked />
-						<span class="theme-toggle-track" aria-hidden="true"></span>
+						<input
+							id="theme-dark"
+							type="checkbox"
+							role="switch"
+							checked
+						/>
+						<span
+							class="theme-toggle-track"
+							aria-hidden="true"
+						></span>
 						Dark mode
 					</label>
 				</div>
 			</header>
 
-			<main>
-				<section aria-labelledby="page-title">
-					<p class="eyebrow"><span aria-hidden="true">01 /</span> WORKLOAD IDENTITY</p>
-					<h1 id="page-title">Hello from <strong>$app.</strong></h1>
-					<p class="intro">One response. One pod.<br />This is the instance that answered.</p>
-					<p class="route">
-						<span>Method: $method</span>
-						<code>Path: $path</code>
-						<small>HTTP status: $status_code $status_reason</small>
-					</p>
-					<p class="intro" $error_hidden>
-						<strong>Error:</strong> $error_message $error_explanation
-					</p>
-				</section>
+			<main class="dashboard">
+				<aside class="rail" aria-label="Deployment context">
+					<p class="step" aria-label="Step 2">02</p>
 
-				<section class="terminal" aria-labelledby="response-title">
-					<header class="terminal-bar">
-						<span class="window-dots" aria-hidden="true">
-							<span class="dot"></span>
-							<span class="dot"></span>
-							<span class="dot"></span>
-						</span>
-						<span>response / identity</span>
+					<span class="rail-rule" aria-hidden="true"></span>
+
+					<ul class="stack">
+						<li>K3D</li>
+						<li>HELM</li>
+						<li>DOCKER</li>
+						<li>PYTHON</li>
+						<li>ANSIBLE</li>
+						<li>ARGO CD</li>
+						<li>KUBERNETES</li>
+					</ul>
+
+					<span class="rail-rule" aria-hidden="true"></span>
+
+					<p class="rail-note">
+						SAME APPLICATION<br />
+						DIFFERENT<br />
+						VERSIONS
+					</p>
+				</aside>
+				<section aria-labelledby="page-title" class="content">
+					<header class="hero">
+						<div>
+							<p class="eyebrow">DEPLOYMENT</p>
+
+							<h1 id="page-title">
+								<span>WORKLOAD</span>
+								<span class="app-name">— $app</span>
+							</h1>
+
+							<div class="release">
+								<code>$app_version</code>
+
+								<p>
+									A simple application.<br />
+									Deployed the GitOps way.<br />
+									With a litte help of Kubernetes.
+								</p>
+							</div>
+						</div>
+
+						<div class="deployment-mark" aria-hidden="true">
+							<div class="scene scene--wireframe">
+								<div class="floor">
+									<div class="z z-0">
+										<div class="cube row-1 col-1">
+											<div class="face br"></div>
+										</div>
+										<div class="cube row-1 col-2">
+											<div class="face br"></div>
+										</div>
+										<div class="cube row-1 col-3">
+											<div class="face br"></div>
+											<div class="face fr"></div>
+										</div>
+										<div class="cube row-2 col-3">
+											<div class="face fr"></div>
+										</div>
+										<div class="cube row-3 col-3">
+											<div class="face fr"></div>
+										</div>
+									</div>
+
+									<div class="z z-1">
+										<div class="cube row-1 col-1">
+											<div class="face br"></div>
+										</div>
+										<div class="cube row-1 col-3">
+											<div class="face br"></div>
+											<div class="face fr"></div>
+										</div>
+										<div class="cube row-2 col-3">
+											<div class="face fr"></div>
+										</div>
+										<div class="cube row-3 col-3">
+											<div class="face fr"></div>
+										</div>
+										<div class="cube row-1 col-2">
+											<div class="face br"></div>
+										</div>
+
+										<!-- Centre -->
+										<div
+											class="cube cube-active row-2 col-2"
+										>
+											<div class="face t"></div>
+											<div class="face br"></div>
+											<div class="face fr"></div>
+										</div>
+									</div>
+
+									<div class="z z-2">
+										<div class="cube row-3 col-1">
+											<div class="face t"></div>
+										</div>
+										<div class="cube row-3 col-2">
+											<div class="face t"></div>
+										</div>
+										<div class="cube row-2 col-1">
+											<div class="face t"></div>
+										</div>
+										<div class="cube row-3 col-3">
+											<div class="face t"></div>
+											<div class="face fr"></div>
+										</div>
+										<div class="cube row-2 col-3">
+											<div class="face t"></div>
+											<div class="face fr"></div>
+										</div>
+										<div class="cube row-1 col-1">
+											<div class="face t"></div>
+											<div class="face br"></div>
+										</div>
+										<div class="cube row-1 col-2">
+											<div class="face t"></div>
+											<div class="face br"></div>
+										</div>
+										<div class="cube row-1 col-3">
+											<div class="face t"></div>
+											<div class="face br"></div>
+											<div class="face fr"></div>
+										</div>
+										<div class="cube row-2 col-2">
+											<div class="face t"></div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<p class="deployment-flow">
+								<span>BUILD</span>
+								<span>DEPLOY</span>
+								<span>SYNC</span>
+								<span>RUN</span>
+							</p>
+						</div>
 					</header>
-					<div class="terminal-body">
-						<p class="command"><span aria-hidden="true">&gt;</span> HTTP server</p>
-						<h2 id="response-title">Application and pod</h2>
-						<dl>
-							<dt>APPLICATION</dt>
-							<dd><code>$app</code></dd>
 
-							<dt>VERSION</dt>
-							<dd><code>$app_version</code></dd>
+					<div class="panels">
+						<section
+							aria-labelledby="request-title"
+							class="panel request"
+						>
+							<h2 id="request-title">
+								<span aria-hidden="true">&gt;</span>
+								REQUEST
+							</h2>
 
-							<dt>POD HOSTNAME</dt>
-							<dd><code class="pod">$pod</code></dd>
-						</dl>
-						<p class="terminal-note">Same code. Separate workloads.</p>
+							<dl>
+								<div>
+									<dt>Method</dt>
+									<dd><code>$method</code></dd>
+								</div>
+
+								<div>
+									<dt>Path</dt>
+									<dd><code>$path</code></dd>
+								</div>
+
+								<div>
+									<dt>Status</dt>
+									<dd class="success">
+										<code>$status_code $status_reason</code>
+									</dd>
+								</div>
+							</dl>
+							<p class="error" $error_hidden>
+								<strong>Error:</strong> $error_message
+								$error_explanation
+							</p>
+						</section>
+
+						<section
+							class="panel workload"
+							aria-labelledby="workload-title"
+						>
+							<h2 id="workload-title">
+								<span class="workload-symbol" aria-hidden="true"
+									>◆</span
+								>
+								WORKLOAD INSTANCE
+							</h2>
+
+							<dl>
+								<div>
+									<dt>Application</dt>
+									<dd><code>$app</code></dd>
+								</div>
+
+								<div>
+									<dt>Version</dt>
+									<dd><code>$app_version</code></dd>
+								</div>
+
+								<div>
+									<dt>Pod hostname</dt>
+									<dd><code class="pod">$pod</code></dd>
+								</div>
+
+								<div>
+									<dt>Team</dt>
+									<dd><code>$team</code></dd>
+								</div>
+							</dl>
+						</section>
 					</div>
 				</section>
 			</main>
@@ -74,10 +255,9 @@
 			<footer class="footer">
 				<span>Inception of Things / $part</span>
 				<span>Shared source code across applications</span>
-				<span>Served by $app, made by team <span class="team">$team</span></span>
-				<span><a href="mailto:$team_mail">Contact us!</a></span>
+				<span>Served by $app </span>
+				<a href="mailto:$team_mail">Contact us!</a>
 			</footer>
-		</div>
+		</div>
 	</body>
 </html>
-

@@ -20,10 +20,12 @@ HTML_PAGE = Template(HTML_PATH.read_text(encoding="utf-8"))
 STYLESHEET = STYLESHEET_PATH.read_bytes()
 FAVICON_COLORS: dict[str, dict[str, str]] = {
     "release-beacon": {
-        "bg_dark": "#ffc5c4",
-        "bg_light": "#a52f70",
-        "glyph_dark": "#1d1d22",
-        "glyph_light": "#a52f70",
+        "bg_dark": "#0d1110",
+        "bg_light": "#f2f0e8",
+        "wire_dark": "#89968f",
+        "wire_light": "#59615c",
+        "accent_dark": "#b7ff3c",
+        "accent_light": "#3f7000",
     },
 }
 
@@ -76,34 +78,49 @@ def render_favicon(app_name: str) -> str:
 
     bg_dark = colors["bg_dark"]
     bg_light = colors["bg_light"]
-    glyph_dark = colors["glyph_dark"]
-    glyph_light = colors["glyph_light"]
+    wire_dark = colors["wire_dark"]
+    wire_light = colors["wire_light"]
+    accent_dark = colors["accent_dark"]
+    accent_light = colors["accent_light"]
 
     svg = f"""\
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
   <style>
     .tile {{
       fill: light-dark({bg_dark}, {bg_light});
     }}
 
-    .glyph {{
-      stroke: light-dark({glyph_dark}, {glyph_light});
+    .wire {{
+      stroke: light-dark({wire_dark}, {wire_light});
     }}
 
-</style>
+    .accent {{
+      fill: light-dark({accent_dark}, {accent_light});
+      stroke: light-dark({accent_dark}, {accent_light});
+    }}
+  </style>
 
-  <rect
-    class="tile"
-    width="32"
-    height="32"
-    rx="8"
+  <rect class="tile" width="32" height="32" rx="8"/>
+
+  <!-- cube filaire -->
+  <path
+    class="wire"
+    d="M16 6 25 10.5 16 15 7 10.5 16 6Z
+       M7 10.5V21.5
+       M25 10.5V21.5
+       M16 15V26
+       M7 21.5 16 26 25 21.5"
+    stroke-width="1.4"
+    stroke-linejoin="round"
+    stroke-linecap="round"
   />
 
+  <!-- cube / noyau central -->
   <path
-    class="glyph"
-    d="M8 10l6 6-6 6m10 6h7"
-    fill="none"
-    stroke-width="3"
+    class="accent"
+    d="M16 12.4 19.2 14 16 15.6 12.8 14 16 12.4Z"
+    stroke-width="1"
+    stroke-linejoin="round"
   />
 </svg>
 """

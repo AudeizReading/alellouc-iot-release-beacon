@@ -1,6 +1,6 @@
 [project]
 name = "release-beacon"
-version = "v1"
+version = "v2"
 description = "Web application for Inception of Things - Part 3"
 requires-python = ">=3.14"
 dependencies = []

@@ -24,11 +24,12 @@ release-beacon/
 │   └── server/
 ├── .dockerignore
 ├── Dockerfile
-└── release-beacon-v1.release.yaml
+└── img/release/digest/
+    └── release-beacon-v1.release.yaml
 ```
 
-Le fichier `release-beacon-v1.release.yaml` contient le digest de l'image
-Docker publiée. Il ne remplace pas le manifeste Kubernetes surveillé par
+Le fichier `img/release/digest/release-beacon-v1.release.yaml` contient le
+digest de l'image Docker publiée. Il ne remplace pas le manifeste Kubernetes surveillé par
 Argo CD ; il sert à conserver la référence exacte de l'image construite.
 
 ## Prérequis
@@ -45,6 +46,27 @@ Les outils suivants sont nécessaires :
 Le conteneur utilise l'image `python:3.14-slim` et installe les dépendances
 déclarées dans [`app/pyproject.toml`](app/pyproject.toml) avec `uv`.
 
+L'application attend qu'on lui fournisse les variables d'environnement suivantes (avec la valeur qui nous conviendra):
+
+```bash
+PART=<la-partie-du-sujet-iot-traitée>
+APP_NAME=<nom-de-l-application>
+PORT=<port-de-contact>
+IOT_LEADER_LOGIN=<nom-du-leader-de-la-team-projet>
+MAINTENER_MAIL=<mail-du-mainteneur-du-projet>
+
+# Ce qui pourrait donner
+PART=p3
+APP_NAME=release-beacon
+PORT=8887
+IOT_LEADER_LOGIN=alellouc
+MAINTENER_MAIL=alellouc@student.42nice.fr
+```
+
+#### v1
+
+#### v2
+
 ### Utilisation depuis `alellouc-iot`
 
 Le dépôt parent fournit en plus :
@@ -55,8 +77,9 @@ Le dépôt parent fournit en plus :
 
 Le sujet de la partie P3 est conservé dans
 [`docs/subject/en.subject.pdf`](../docs/subject/en.subject.pdf) du dépôt
-parent. Ce lien n'est disponible que lorsque le répertoire est utilisé dans
-le monorepo.
+[parent](https://gitlab.com/AudeizReading/alellouc-iot/-/tree/develop?ref_type=heads).
+:warning: _Ce lien n'est disponible que lorsque le répertoire est utilisé dans
+le monorepo._
 
 ## Démarrer depuis le dépôt autonome
 
@@ -380,21 +403,25 @@ Le nom par défaut du fichier de release est construit à partir du contexte,
 du nom et du tag :
 
 ```text
-<contexte>/<nom>-<tag>.release.yaml
+<contexte>/img/release/digest/<nom>-<tag>.release.yaml
 ```
 
 Avec la commande P3 ci-dessus, il s'agit donc de
-`release-beacon/release-beacon-v1.release.yaml`. Le fichier doit contenir le
-digest réellement produit, et non un tag seul. Une image publiée sur une
+`release-beacon/img/release/digest/release-beacon-v1.release.yaml`. Le fichier
+doit contenir le digest réellement produit, et non un tag seul. Une image publiée sur une
 registry et un manifeste GitOps doivent être associés au même changement
 vérifiable.
 
 ## Limites actuelles
 
-- Le pipeline de construction et de publication automatique n'est pas encore
-  en place.
-- La construction reste manuelle, soit avec Docker depuis le dépôt autonome,
-  soit avec le playbook Ansible/Mise depuis `alellouc-iot`.
+- Un workflow indépendant de vérification des PR avec Python et uv est fourni ;
+  les contrôles et la protection de branche à activer sont décrits dans
+  [le guide CI](.github/CI.md).
+- Le workflow GitHub de construction, de signature et de publication du digest
+  est fourni ; son exécution sur GitHub reste à vérifier. La configuration et
+  la procédure de release sont décrites dans [le guide dédié](.github/RELEASES.md).
+- Les constructions locales restent disponibles avec Docker depuis le dépôt
+  autonome ou avec le playbook Ansible/Mise depuis `alellouc-iot`.
 - `git subtree split` ne sélectionne que le préfixe
   `release-beacon/`. Il ne permet pas d'extraire arbitrairement des fichiers
   situés à côté du préfixe.
