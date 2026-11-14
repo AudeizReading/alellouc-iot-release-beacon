@@ -1,13 +1,23 @@
 # Pull request validation
 
-The [PR validation workflow](workflows/pr-checks.yaml) is independent of Docker
-publication. It belongs to the standalone application repository and runs on
-PRs targeting `main` or the repository's current default branch. No Docker Hub
-credentials or release are needed.
+The [PR validation workflow](workflows/pr-checks.yaml) belongs to the standalone
+application repository. On PRs, it runs when the base branch starts with
+`main` or equals the repository's current default branch, subject to its path
+filters. It also supports `workflow_call` so publication can reuse the same
+checks before building an image. No Docker Hub credentials or release are
+needed for validation.
 
 ## Checks performed
 
-The workflow checks out GitHub's proposed merge commit, then:
+On PRs, the workflow checks out GitHub's proposed merge commit. When called by
+publication, it checks out the publication run's exact `github.sha` instead.
+
+Publication calls set `require_default_branch: true`. Their checkout fetches
+full history and first runs `git merge-base --is-ancestor` against the fetched
+default branch. A commit outside that history fails before dependency setup.
+Ordinary PR runs keep a shallow checkout and do not perform this ancestry check.
+
+After checkout and any required ancestry check, validation:
 
 1. Sets up uv and selects Python 3.14, matching the Dockerfile's Python series.
 2. Runs `uv sync --no-dev` from `app/`, as in the Dockerfile. There is no
@@ -23,6 +33,9 @@ The workflow checks out GitHub's proposed merge commit, then:
 5. Prints the server's logs and stops its process, including when tests fail.
    Cleanup first requests termination, then kills a process that does not stop
    within five seconds.
+6. Tests the release API client with a mocked HTTP transport. These tests
+   verify draft creation, digest upload before publication, response validation,
+   and failure propagation, without Docker, credentials, or network calls.
 
 The installation and application entry point follow the Dockerfile, but this
 workflow validates Python on the runner rather than building a container.
@@ -36,6 +49,13 @@ There is no configured linter or type checker in this application. The syntax
 check is not presented as linting. These tests do not prove accessibility,
 multi-architecture compatibility, or conformance to the architecture policy;
 those require their respective checks or review.
+
+The publication workflow runs this validation as a prerequisite job and its
+build job declares `needs: checks`. Failed or skipped validation prevents the
+build job from running. Publication is allowed only for commits already in
+the default branch history;
+its checkout uses the same commit as validation. PR branch and path filters
+do not suppress validation for an authorized publication run.
 
 ## Make failures block merges
 
@@ -52,9 +72,11 @@ workflow has run on a PR:
    subject to these checks.
 
 The workflow uses only `contents: read` and never uses `pull_request_target`.
-There are no path filters, so documentation-only PRs also produce the required
-check. Non-target branches skip the job; the ruleset must target the branches
-listed above. Ruleset availability depends on the repository's GitHub plan
+PR path filters cover `app/**`, `tests/**`, `.github/scripts/**`, and both
+workflow files. A PR changing only other paths does not start the workflow;
+a required check may then remain pending and block merging. Non-target
+branches skip the job. The ruleset and these filters must agree with the
+desired merge policy. Ruleset availability depends on the repository's GitHub plan
 and visibility; classic branch protection can require the same status check
 where available. These server-side settings are not activated by adding the
 workflow file.
@@ -68,6 +90,7 @@ cd app
 uv sync --no-dev
 uv run --no-sync python -m compileall -q server
 uv run --no-sync python -B ../tests/run_checks.py
+uv run --no-sync python -B -m unittest discover -s ../.github/scripts -p 'test_*.py' -v
 ```
 
 The test runner supplies its own settings and uses an available loopback
@@ -75,23 +98,35 @@ port. It does not reuse a running application or require a fixed port.
 
 ## Execution time and cost
 
-Both workflows use one standard Ubuntu job, with no job matrix. The release
-build targets AMD64 and ARM64 together using Buildx and QEMU; the PR checks
-remain native Python. The PR job has a five-minute timeout and cancels
-superseded runs of the same PR. The release job has a ten-minute timeout. These limits are
-per invocation, not monthly spending caps.
+PR validation uses one standard Ubuntu job. Publication uses two sequential
+Ubuntu jobs: the reusable native Python validation, then build and publication.
+There is no job matrix. The release build targets AMD64 and ARM64 together
+using Buildx and QEMU. Validation has a five-minute timeout; build and
+publication have a ten-minute timeout. A successful publication therefore
+includes both jobs, with up to fifteen runner minutes before rounding and
+execution overhead. These limits are per invocation, not monthly spending caps.
+
+PR validation cancels superseded runs of the same PR to save time. Publication
+runs are serialized and an active publication is not cancelled by a new one.
+Called validation uses a separate concurrency group, with cancellation disabled
+for publication calls, so it cannot cancel its parent workflow.
 
 With the current dependency-free application, budget roughly 1–2 runner
-minutes per PR check execution and 5–10 per multi-platform release build,
-push, signing, and digest upload. These are planning estimates, not measured workflow durations;
+minutes per validation execution and 5–10 per multi-platform release build,
+push, signing, and digest upload. A complete publication therefore budgets
+roughly 6–12 runner minutes, including its prerequisite validation. These are
+planning estimates, not measured workflow durations;
 downloads, ARM64 emulation, registry latency, and build cache misses can
 increase them. A release exceeding ten minutes fails at the existing timeout;
 it is not guaranteed to finish within this estimate. Each
 push to an open PR triggers another check execution. Editing or reopening a
-PR can also trigger checks. The release job only runs on release publication.
+PR can also trigger checks when its path filters match. The release job runs
+only after a tag matching `publish/**` is pushed and creates the release itself;
+see [RELEASES.md](RELEASES.md). Branch pushes, including CI-only merges, do not
+publish images. It does not run on PRs or release publication.
 
-For example, ten PR check executions and one release would be approximately
-15–30 runner minutes. GitHub rounds each job's duration up to a whole minute.
+For example, ten PR check executions and one complete publication would be
+approximately 16–32 runner minutes. GitHub rounds each job's duration up to a whole minute.
 Standard runners are free for public repositories. For private repositories,
 usage draws from the owner's included allowance and may be billed beyond it.
 The repository's visibility, plan, remaining allowance, and actual run times

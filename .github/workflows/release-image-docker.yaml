@@ -1,4 +1,4 @@
-name: Release Beacon Docker image publish workflow
+name: Publish image and immutable GitHub release
 
 # This workflow uses actions that are not certified by GitHub.
 # They are provided by a third-party and are governed by
@@ -6,18 +6,35 @@ name: Release Beacon Docker image publish workflow
 # documentation.
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'publish/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
 
 env:
   REGISTRY: ${{ vars.DOCKERHUB_REGISTRY }}
 
 jobs:
+  checks:
+    uses: ./.github/workflows/pr-checks.yaml
+    with:
+      require_default_branch: true
+    permissions:
+      contents: read
+
   build:
+    name: Build image and publish release
+    needs: checks
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: write # Upload the image digest as a release asset.
+      contents: write # Create a draft, upload its digest, then publish it.
       # This is used to complete the keyless signing identity challenge
       # with sigstore/fulcio.
       id-token: write
@@ -26,17 +43,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Read application metadata
         id: app
-        env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           python3 <<'PY'
           import os
           import re
+          import subprocess
           import tomllib
           from pathlib import Path
 
@@ -48,12 +64,22 @@ jobs:
               raise SystemExit("Invalid Docker image name")
           if not isinstance(version, str) or not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", version):
               raise SystemExit("Invalid Docker image tag")
-          if os.environ["RELEASE_TAG"] != version:
-              raise SystemExit("Release tag differs from app/pyproject.toml version")
+          run = os.environ["GITHUB_RUN_ID"]
+          attempt = os.environ["GITHUB_RUN_ATTEMPT"]
+          git_tag = f"{name}/{version}/build-{run}-{attempt}"
+          subprocess.run(["git", "check-ref-format", f"refs/tags/{git_tag}"], check=True)
 
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-              output.write(f"name={name}\ntag={version}\n")
+              output.write(f"name={name}\ntag={version}\ngit_tag={git_tag}\n")
           PY
+
+      # Fail authentication before installing build and signing tools.
+      - name: Log into Docker Hub registry
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ vars.DOCKERHUB_LOGIN }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # Install the cosign tool for release signing.
       # https://github.com/sigstore/cosign-installer
@@ -74,15 +100,6 @@ jobs:
         uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
         with:
           driver: docker-container
-
-      # Authenticate to publish the release image.
-      # https://github.com/docker/login-action
-      - name: Log into Docker Hub registry
-        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ vars.DOCKERHUB_LOGIN }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # Extract metadata (tags, labels) for Docker
       # https://github.com/docker/metadata-action
@@ -155,34 +172,69 @@ jobs:
               output.write(f"path={path}\n")
           PY
 
+      - name: Create GitHub release draft
+        id: draft
+        working-directory: .github/scripts
+        env:
+          RELEASE_GIT_TAG: ${{ steps.app.outputs.git_tag }}
+          RELEASE_TITLE: ${{ steps.app.outputs.tag }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 <<'PY'
+          import os
+          from github_releases import GitHubReleases
+
+          client = GitHubReleases(
+              os.environ["GITHUB_API_URL"], os.environ["GITHUB_REPOSITORY"],
+              os.environ["GITHUB_TOKEN"],
+          )
+          release = client.create_draft(
+              os.environ["RELEASE_GIT_TAG"], os.environ["RELEASE_TITLE"],
+              os.environ["GITHUB_SHA"],
+          )
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"id={release.id}\nupload_url={release.upload_url}\n")
+          print(f"Draft created: {release.html_url}")
+          PY
+
       - name: Attach image digest to GitHub release
+        working-directory: .github/scripts
         env:
           DIGEST_FILE: ${{ steps.release-digest.outputs.path }}
-          RELEASE_UPLOAD_URL: ${{ github.event.release.upload_url }}
+          RELEASE_UPLOAD_URL: ${{ steps.draft.outputs.upload_url }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python3 <<'PY'
           import os
           from pathlib import Path
-          from urllib.parse import urlencode
-          from urllib.request import Request, urlopen
+          from github_releases import GitHubReleases
 
-          path = Path(os.environ["DIGEST_FILE"])
-          upload_url = os.environ["RELEASE_UPLOAD_URL"].partition("{")[0]
-          query = urlencode({"name": path.name})
-          request = Request(
-              f"{upload_url}?{query}",
-              data=path.read_bytes(),
-              headers={
-                  "Accept": "application/vnd.github+json",
-                  "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
-                  "Content-Type": "application/octet-stream",
-                  "X-GitHub-Api-Version": "2022-11-28",
-              },
-              method="POST",
+          client = GitHubReleases(
+              os.environ["GITHUB_API_URL"], os.environ["GITHUB_REPOSITORY"],
+              os.environ["GITHUB_TOKEN"],
           )
-          with urlopen(request, timeout=60) as response:
-              if response.status != 201:
-                  raise SystemExit(f"Unexpected GitHub upload status: {response.status}")
+          path = Path(os.environ["DIGEST_FILE"])
+          client.upload_digest(os.environ["RELEASE_UPLOAD_URL"], path)
           print(f"Digest attached: {path.name}")
+          PY
+
+      - name: Publish the completed GitHub release
+        working-directory: .github/scripts
+        env:
+          RELEASE_ID: ${{ steps.draft.outputs.id }}
+          RELEASE_GIT_TAG: ${{ steps.app.outputs.git_tag }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 <<'PY'
+          import os
+          from github_releases import GitHubReleases
+
+          client = GitHubReleases(
+              os.environ["GITHUB_API_URL"], os.environ["GITHUB_REPOSITORY"],
+              os.environ["GITHUB_TOKEN"],
+          )
+          release = client.publish(
+              int(os.environ["RELEASE_ID"]), os.environ["RELEASE_GIT_TAG"],
+          )
+          print(f"Release published: {release.html_url}")
           PY
