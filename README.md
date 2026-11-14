@@ -24,11 +24,12 @@ release-beacon/
 │   └── server/
 ├── .dockerignore
 ├── Dockerfile
-└── release-beacon-v1.release.yaml
+└── img/release/digest/
+    └── release-beacon-v1.release.yaml
 ```
 
-Le fichier `release-beacon-v1.release.yaml` contient le digest de l'image
-Docker publiée. Il ne remplace pas le manifeste Kubernetes surveillé par
+Le fichier `img/release/digest/release-beacon-v1.release.yaml` contient le
+digest de l'image Docker publiée. Il ne remplace pas le manifeste Kubernetes surveillé par
 Argo CD ; il sert à conserver la référence exacte de l'image construite.
 
 ## Prérequis
@@ -45,6 +46,27 @@ Les outils suivants sont nécessaires :
 Le conteneur utilise l'image `python:3.14-slim` et installe les dépendances
 déclarées dans [`app/pyproject.toml`](app/pyproject.toml) avec `uv`.
 
+L'application attend qu'on lui fournisse les variables d'environnement suivantes (avec la valeur qui nous conviendra):
+
+```bash
+PART=<la-partie-du-sujet-iot-traitée>
+APP_NAME=<nom-de-l-application>
+PORT=<port-de-contact>
+IOT_LEADER_LOGIN=<nom-du-leader-de-la-team-projet>
+MAINTENER_MAIL=<mail-du-mainteneur-du-projet>
+
+# Ce qui pourrait donner
+PART=p3
+APP_NAME=release-beacon
+PORT=8887
+IOT_LEADER_LOGIN=alellouc
+MAINTENER_MAIL=alellouc@student.42nice.fr
+```
+
+#### v1
+
+#### v2
+
 ### Utilisation depuis `alellouc-iot`
 
 Le dépôt parent fournit en plus :
@@ -55,8 +77,9 @@ Le dépôt parent fournit en plus :
 
 Le sujet de la partie P3 est conservé dans
 [`docs/subject/en.subject.pdf`](../docs/subject/en.subject.pdf) du dépôt
-parent. Ce lien n'est disponible que lorsque le répertoire est utilisé dans
-le monorepo.
+[parent](https://gitlab.com/AudeizReading/alellouc-iot/-/tree/develop?ref_type=heads).
+:warning: _Ce lien n'est disponible que lorsque le répertoire est utilisé dans
+le monorepo._
 
 ## Démarrer depuis le dépôt autonome
 
@@ -245,6 +268,114 @@ validation si elle n'est plus nécessaire :
 git push rb-app --delete subtree-import
 ```
 
+### Récupérer les modifications GitHub dans le parent
+
+Cette procédure concerne le subtree `release-beacon/`, tant que le dossier
+reste suivi par le dépôt parent. Une PR fusionnée sur le `main` du dépôt
+applicatif peut être réintégrée dans ce dossier depuis le remote `rb-app`.
+Une PR encore ouverte n'est pas incluse dans `main`.
+
+Exécuter les commandes depuis la racine de `alellouc-iot`, dans Bash ou Zsh.
+La branche parent courante recevra la fusion ; vérifier sa sélection et son
+état avant de commencer :
+
+```bash
+git branch --show-current
+git status --short
+```
+
+#### Mettre le travail local à l'abri
+
+Les opérations subtree qui fusionnent un historique exigent un arbre de
+travail propre. Des modifications hors de `release-beacon/`, par exemple
+dans les rôles Ansible, peuvent provoquer
+`fatal: working tree has modifications.  Cannot add.`. Une simple mise en
+index avec `git add` ne suffit pas.
+
+Si des modifications doivent rester en attente, les sauvegarder avant
+l'import. Exécuter ce bloc uniquement si le dépôt contient effectivement du
+travail à mettre en réserve :
+
+```bash
+git stash push --include-untracked -m "before subtree release-beacon" &&
+subtree_stash=$(git rev-parse --verify refs/stash) &&
+git status --short
+```
+
+Le stash sauvegarde et retire temporairement les modifications et les
+fichiers non suivis, hors fichiers ignorés. La variable `subtree_stash`
+conserve l'identifiant de cette sauvegarde sans dépendre du rang des anciens
+stashes. Garder le même terminal pour la restauration. Si la sauvegarde
+échoue, arrêter la procédure. La sortie finale de `git status --short` doit
+être vide avant de poursuivre.
+
+Les changements destinés à faire partie d'un export subtree doivent être
+commités : le stash protège du travail local, mais ne l'inclut pas dans
+l'historique exporté.
+
+#### Relier l'historique lors de la première récupération
+
+Si le dossier a seulement été exporté par `git subtree split`, sans
+rattachement préalable, relier cet historique au parent une première fois.
+Un rattachement existant peut être repéré avec :
+
+```bash
+git log --format='%h %s' --grep='^git-subtree-dir: release-beacon$' -1
+```
+
+Lorsque ce rattachement manque après un export par split :
+
+```bash
+git subtree split --prefix=release-beacon --rejoin
+```
+
+`--rejoin` crée le commit de rattachement dans la branche parent courante.
+Cette étape ne publie rien et ne remplace pas les fichiers du dossier.
+Lorsqu'un rattachement existe déjà, passer directement à la récupération.
+
+#### Importer puis restaurer le travail local
+
+```bash
+git subtree pull --prefix=release-beacon rb-app main
+```
+
+Cette commande accède au réseau, récupère `main` depuis `rb-app` et fusionne
+ses changements dans le préfixe `release-beacon/`. Elle peut créer un commit
+de fusion dans le parent ; elle ne pousse rien vers GitHub ou GitLab.
+
+Si la fusion réussit, restaurer le travail local uniquement si un stash a
+été créé à la première étape :
+
+```bash
+git stash apply "$subtree_stash"
+git status --short
+```
+
+`apply` conserve la sauvegarde dans le stash. Vérifier le contenu restauré
+avant toute suppression de cette sauvegarde ; la mise en index antérieure
+n'est pas nécessairement rétablie. Si le terminal a été fermé, retrouver
+l'entrée `before subtree release-beacon` avec `git stash list` avant de
+choisir explicitement la sauvegarde à appliquer.
+
+Si le pull signale des conflits, arrêter la séquence avant la restauration
+du stash. Examiner `git status`, résoudre les fichiers signalés, les indexer
+explicitement puis terminer la fusion avec `git commit`. Pour abandonner
+uniquement une fusion encore en cours, confirmée par `git status` :
+
+```bash
+git merge --abort
+```
+
+Cette annulation conserve le rattachement `--rejoin` éventuellement créé
+avant le pull ainsi que le stash. La restauration du stash peut elle aussi
+produire des conflits ; dans ce cas, conserver la sauvegarde pendant leur
+résolution.
+
+Les options ont été vérifiées dans l'aide Git installée et un marqueur de
+rattachement a été observé dans l'historique local. Aucune opération de stash,
+de rattachement, de synchronisation ou d'annulation n'a été exécutée pour
+valider cette procédure.
+
 ### Relation avec l'historique original
 
 Les commits de `release-beacon-export` sont issus de l'historique de
@@ -380,21 +511,25 @@ Le nom par défaut du fichier de release est construit à partir du contexte,
 du nom et du tag :
 
 ```text
-<contexte>/<nom>-<tag>.release.yaml
+<contexte>/img/release/digest/<nom>-<tag>.release.yaml
 ```
 
 Avec la commande P3 ci-dessus, il s'agit donc de
-`release-beacon/release-beacon-v1.release.yaml`. Le fichier doit contenir le
-digest réellement produit, et non un tag seul. Une image publiée sur une
+`release-beacon/img/release/digest/release-beacon-v1.release.yaml`. Le fichier
+doit contenir le digest réellement produit, et non un tag seul. Une image publiée sur une
 registry et un manifeste GitOps doivent être associés au même changement
 vérifiable.
 
 ## Limites actuelles
 
-- Le pipeline de construction et de publication automatique n'est pas encore
-  en place.
-- La construction reste manuelle, soit avec Docker depuis le dépôt autonome,
-  soit avec le playbook Ansible/Mise depuis `alellouc-iot`.
+- Un workflow indépendant de vérification des PR avec Python et uv est fourni ;
+  les contrôles et la protection de branche à activer sont décrits dans
+  [le guide CI](.github/CI.md).
+- Le workflow GitHub de construction, de signature et de publication du digest
+  est fourni ; son exécution sur GitHub reste à vérifier. La configuration et
+  la procédure de release sont décrites dans [le guide dédié](.github/RELEASES.md).
+- Les constructions locales restent disponibles avec Docker depuis le dépôt
+  autonome ou avec le playbook Ansible/Mise depuis `alellouc-iot`.
 - `git subtree split` ne sélectionne que le préfixe
   `release-beacon/`. Il ne permet pas d'extraire arbitrairement des fichiers
   situés à côté du préfixe.
