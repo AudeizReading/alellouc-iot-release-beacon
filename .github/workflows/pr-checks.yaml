@@ -16,9 +16,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Only run on PRs targeting the main branch or the default branch
   checks:
     name: PR checks
-    # Only run on PRs targeting the main branch or the default branch
     if: >-
       startsWith(github.base_ref, 'main')
     runs-on: ubuntu-latest
