@@ -1,0 +1,188 @@
+name: Release Beacon Docker image publish workflow
+
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+on:
+  release:
+    types: [published]
+
+env:
+  REGISTRY: ${{ vars.DOCKERHUB_REGISTRY }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # Upload the image digest as a release asset.
+      # This is used to complete the keyless signing identity challenge
+      # with sigstore/fulcio.
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+
+      - name: Read application metadata
+        id: app
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python3 <<'PY'
+          import os
+          import re
+          import tomllib
+          from pathlib import Path
+
+          project = tomllib.loads(Path("app/pyproject.toml").read_text())["project"]
+          name = project["name"]
+          version = project["version"]
+
+          if not isinstance(name, str) or not re.fullmatch(r"[a-z0-9]+(?:[._-][a-z0-9]+)*", name):
+              raise SystemExit("Invalid Docker image name")
+          if not isinstance(version, str) or not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", version):
+              raise SystemExit("Invalid Docker image tag")
+          if os.environ["RELEASE_TAG"] != version:
+              raise SystemExit("Release tag differs from app/pyproject.toml version")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"name={name}\ntag={version}\n")
+          PY
+
+      # Install the cosign tool for release signing.
+      # https://github.com/sigstore/cosign-installer
+      - name: Install cosign
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 #v3.5.0
+        with:
+          cosign-release: 'v2.2.4'
+
+      # Run ARM64 build instructions on the AMD64 runner.
+      - name: Set up QEMU for ARM64
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+        with:
+          platforms: arm64
+
+      # Set up the same builder driver used by the Ansible role.
+      # https://github.com/docker/setup-buildx-action
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
+        with:
+          driver: docker-container
+
+      # Authenticate to publish the release image.
+      # https://github.com/docker/login-action
+      - name: Log into Docker Hub registry
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ vars.DOCKERHUB_LOGIN }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Extract metadata (tags, labels) for Docker
+      # https://github.com/docker/metadata-action
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934 # v5.0.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ vars.DOCKERHUB_GROUP }}/${{ steps.app.outputs.name }}
+          tags: |
+            type=raw,value=${{ steps.app.outputs.tag }}
+          flavor: |
+            latest=false
+
+      # Build and push the release image with Buildx.
+      # https://github.com/docker/build-push-action
+      - name: Build and push Docker image
+        id: build-and-push
+        uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Sign the resulting Docker image digest.
+      # This will only write to the public Rekor transparency log when the Docker
+      # repository is public to avoid leaking data.  If you would like to publish
+      # transparency data even for private images, pass --force to cosign below.
+      # https://github.com/sigstore/cosign
+      - name: Sign the published Docker image
+        env:
+          # https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-an-intermediate-environment-variable
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.build-and-push.outputs.digest }}
+        # This step uses the identity token to provision an ephemeral certificate
+        # against the sigstore community Fulcio instance.
+        run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+
+      - name: Write image digest file
+        id: release-digest
+        env:
+          APP_NAME: ${{ steps.app.outputs.name }}
+          APP_TAG: ${{ steps.app.outputs.tag }}
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.build-and-push.outputs.digest }}
+        run: |
+          python3 <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          tags = os.environ["IMAGE_TAGS"].splitlines()
+          if len(tags) != 1 or not tags[0]:
+              raise SystemExit("Expected exactly one published image tag")
+          digest = os.environ["DIGEST"]
+          if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+              raise SystemExit("Invalid published image digest")
+
+          filename = f"{os.environ['APP_NAME']}-{os.environ['APP_TAG']}.release.yaml"
+          path = Path(os.environ["GITHUB_WORKSPACE"]) / "img/release/digest" / filename
+          path.parent.mkdir(parents=True, exist_ok=True)
+          reference = json.dumps(f"{tags[0]}@{digest}")
+          path.write_text(f"docker_image: {reference}\n", encoding="utf-8")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"path={path}\n")
+          PY
+
+      - name: Attach image digest to GitHub release
+        env:
+          DIGEST_FILE: ${{ steps.release-digest.outputs.path }}
+          RELEASE_UPLOAD_URL: ${{ github.event.release.upload_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 <<'PY'
+          import os
+          from pathlib import Path
+          from urllib.parse import urlencode
+          from urllib.request import Request, urlopen
+
+          path = Path(os.environ["DIGEST_FILE"])
+          upload_url = os.environ["RELEASE_UPLOAD_URL"].partition("{")[0]
+          query = urlencode({"name": path.name})
+          request = Request(
+              f"{upload_url}?{query}",
+              data=path.read_bytes(),
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+                  "Content-Type": "application/octet-stream",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+              method="POST",
+          )
+          with urlopen(request, timeout=60) as response:
+              if response.status != 201:
+                  raise SystemExit(f"Unexpected GitHub upload status: {response.status}")
+          print(f"Digest attached: {path.name}")
+          PY
