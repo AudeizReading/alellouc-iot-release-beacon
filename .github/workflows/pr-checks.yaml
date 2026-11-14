@@ -4,9 +4,9 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
     paths:
-      - 'app/**'
-      - 'tests/**'
-      - '.github/workflows/pr-checks.yaml'
+      - "app/**"
+      - "tests/**"
+      - ".github/workflows/pr-checks.yaml"
 
 permissions:
   contents: read
@@ -16,10 +16,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Only run on PRs targeting the main branch or the default branch
   checks:
     name: PR checks
     if: >-
-      startsWith(github.base_ref, 'main') # Only run on PRs targeting the main branch or the default branch
+      startsWith(github.base_ref, 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     defaults:
