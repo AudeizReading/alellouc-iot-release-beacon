@@ -1,0 +1,49 @@
+name: PR validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    paths:
+      - 'app/**'
+      - 'tests/**'
+      - '.github/workflows/pr-checks.yaml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: PR checks
+    if: >-
+      startsWith(github.base_ref, 'main') # Only run on PRs targeting the main branch or the default branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - name: Checkout proposed merge
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up uv and select Python 3.14
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.14"
+          working-directory: app
+          enable-cache: false
+
+      - name: Install production dependencies as in the Dockerfile
+        run: uv sync --no-dev
+
+      - name: Check Python syntax
+        run: uv run --no-sync python -m compileall -q server
+
+      - name: Run contract and HTTP tests
+        run: uv run --no-sync python -B ../tests/run_checks.py
