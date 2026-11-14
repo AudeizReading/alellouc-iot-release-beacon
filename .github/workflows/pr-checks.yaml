@@ -6,21 +6,33 @@ on:
     paths:
       - "app/**"
       - "tests/**"
+      - ".github/scripts/**"
       - ".github/workflows/pr-checks.yaml"
+      - ".github/workflows/release-publish.yaml"
+  workflow_call:
+    inputs:
+      require_default_branch:
+        description: Require the validated commit to belong to the default branch history.
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  # A called workflow inherits its caller's github.workflow value.
+  # Keep this group distinct from the publication workflow's lock.
+  group: ${{ github.workflow }}-checks-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Only run on PRs targeting the main branch or the default branch
+  # Preserve the PR branch filter; publication calls validate their selected commit.
   checks:
     name: PR checks
     if: >-
-      startsWith(github.base_ref, 'main')
+      github.event_name != 'pull_request' ||
+      startsWith(github.base_ref, 'main') ||
+      github.base_ref == github.event.repository.default_branch
     runs-on: ubuntu-latest
     timeout-minutes: 5
     defaults:
@@ -28,10 +40,18 @@ jobs:
         working-directory: app
 
     steps:
-      - name: Checkout proposed merge
+      - name: Checkout validation commit
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.sha }}
+          fetch-depth: ${{ inputs.require_default_branch && '0' || '1' }}
           persist-credentials: false
+
+      - name: Verify publication commit belongs to the default branch
+        if: inputs.require_default_branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: git merge-base --is-ancestor "$GITHUB_SHA" "refs/remotes/origin/$DEFAULT_BRANCH"
 
       - name: Set up uv and select Python 3.14
         uses: astral-sh/setup-uv@v6
@@ -48,3 +68,6 @@ jobs:
 
       - name: Run contract and HTTP tests
         run: uv run --no-sync python -B ../tests/run_checks.py
+
+      - name: Test release API commands without network access
+        run: uv run --no-sync python -B -m unittest discover -s ../.github/scripts -p 'test_*.py' -v
