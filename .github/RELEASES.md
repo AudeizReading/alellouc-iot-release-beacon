@@ -1,6 +1,6 @@
 # Publishing Release Beacon
 
-The [publication workflow](workflows/release-publish.yaml), displayed as
+The [publication workflow](workflows/release-image-docker.yaml), displayed as
 **Publish image and immutable GitHub release**, belongs to the standalone
 application repository. After a subtree export, `.github/` (including its
 `scripts/` directory), `Dockerfile`, and `app/` must be at that repository's root.

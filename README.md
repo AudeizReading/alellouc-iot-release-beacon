@@ -77,7 +77,7 @@ Le dépôt parent fournit en plus :
 
 Le sujet de la partie P3 est conservé dans
 [`docs/subject/en.subject.pdf`](../docs/subject/en.subject.pdf) du dépôt
-[parent](https://gitlab.com/AudeizReading/alellouc-iot/-/tree/develop?ref_type=heads).
+[parent](../README.md).
 :warning: _Ce lien n'est disponible que lorsque le répertoire est utilisé dans
 le monorepo._
 
@@ -154,7 +154,7 @@ Le playbook écrit ensuite le digest de l'image dans le fichier de release
 prévu par le flux du projet. Ce fichier doit être conservé avec le commit qui
 référence l'image correspondante. Le déploiement P3 utilise ensuite le
 manifeste GitOps surveillé par Argo CD ; voir
-[`docs/tech/10.p3-gitops.md`](../docs/tech/10.p3-gitops.md).
+[`docs/tech/08.p3-gitops.md`](../docs/tech/08.p3-gitops.md).
 
 ## Fonctionnement de `git subtree`
 
