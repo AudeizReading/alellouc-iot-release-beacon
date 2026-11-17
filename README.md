@@ -65,7 +65,13 @@ MAINTENER_MAIL=alellouc@student.42nice.fr
 
 #### v1
 
+![release-beacon dark v1](./docs/img/release-beacon-dark-v1.png)
+![release-beacon light v1](./docs/img/release-beacon-light-v1.png)
+
 #### v2
+
+![release-beacon dark v2](./docs/img/release-beacon-dark-v2.png)
+![release-beacon light v2](./docs/img/release-beacon-light-v2.png)
 
 ### Utilisation depuis `alellouc-iot`
 
