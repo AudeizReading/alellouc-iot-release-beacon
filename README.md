@@ -83,7 +83,7 @@ Le dépôt parent fournit en plus :
 
 Le sujet de la partie P3 est conservé dans
 [`docs/subject/en.subject.pdf`](../docs/subject/en.subject.pdf) du dépôt
-[parent](../README.md).
+[parent](https://gitlab.com/AudeizReading/alellouc-iot/-/tree/develop?ref_type=heads).
 :warning: _Ce lien n'est disponible que lorsque le répertoire est utilisé dans
 le monorepo._
 
